@@ -13,7 +13,7 @@ import numpy as np
 parser = argparse.ArgumentParser(
     description='PyTorch RNN Prediction Model on Time-series Dataset')
 parser.add_argument('--data', type=str, default='ofdm',
-                    help='type of the dataset (ecg, gesture, power_demand, space_shuttle, respiration, nyc_taxi, ofdm')
+                    help='type of the dataset')
 parser.add_argument('--filename', type=str, default='NoiseSymbol.pkl',
                     help='filename of the dataset')
 parser.add_argument('--model', type=str, default='GRU',
@@ -28,13 +28,13 @@ parser.add_argument('--nlayers', type=int, default=4,
                     help='number of layers')
 parser.add_argument('--res_connection', action='store_true',
                     help='residual connection')
-parser.add_argument('--lr', type=float, default=0.00001,  # 0.0002
+parser.add_argument('--lr', type=float, default=0.0002,  # 0.0002
                     help='initial learning rate')
 # parser.add_argument('--lr_interval', type=int,
 #                     default=100, help='lr scheduler reduce interval')
 # parser.add_argument('--lr_factor', type=int,
 #                     default=0.8, help='lr scheduler reduce factor')
-parser.add_argument('--weight_decay', type=float, default=0,
+parser.add_argument('--weight_decay', type=float, default=1e-4,
                     help='weight decay')
 parser.add_argument('--clip', type=float, default=10,
                     help='gradient clipping')
@@ -409,4 +409,4 @@ model_dictionary = {'epoch': max(epoch, start_epoch),
 model.save_checkpoint(model_dictionary, True)
 print('-' * 89)
 
-OFDM_Validation()
+# OFDM_Validation()

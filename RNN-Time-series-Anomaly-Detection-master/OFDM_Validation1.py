@@ -20,7 +20,7 @@ mapping_table = {
 
 demapping_table = {v: k for k, v in mapping_table.items()}
 
-total_epochs = 10
+total_epochs = 1000
 
 if os.path.isfile('checkpoint.txt'):
     checkpoint = np.loadtxt('checkpoint.txt')
@@ -301,19 +301,19 @@ def addCP(OFDM_time):
     return np.hstack([cp, OFDM_time])  # ... and add them to the beginning
 
 
-# construct the another version is including impulse noise(LJS)
 def channel_BG(signal, channelResponse, SNRdb):
     # Bernoulli-Gaussian channel          # lJS
     # IGR = 50  # impulse gaussian ratio
-    # prob = 0.005  # prob
-    prob = np.random.uniform(0.001, 0.01)
+    noise_prob = 0
+    prob = 0.01  # prob
+    # prob = np.random.uniform(0.001, 0.01)
     convolved = np.convolve(signal, channelResponse)
     signal_power = np.mean(abs(convolved**2))
     sigma2 = signal_power * 10**(-SNRdb / 10)      # (signal_power/2)  (LJS)
     # sigma3 = sigma2 * IGR
     # sigma3 = 15
     sigma3 = signal_power * \
-        np.random.uniform(10*np.log10(10), 10*np.log10(31.622776602))
+        np.random.uniform(10*np.log10(3.1622776602), 10*np.log10(10))
     Gaussian = np.random.randn(*convolved.shape) + 1j * \
         np.random.randn(*convolved.shape)
     power1 = np.zeros([*convolved.shape])
@@ -333,38 +333,16 @@ def channel_BG(signal, channelResponse, SNRdb):
         power2[i] = np.sqrt(sigma2 / 2)
     for i in range(*convolved.shape):
         k = np.random.rand()
-        n = np.random.binomial(n=1, p=0.5)
         if k <= prob:
-            if n == 1:
-                power1[i] = np.sqrt(sigma3 / 2)
-                power2[i] = np.sqrt(sigma3 / 2)
-                # print('impulse_position_single =', i + 1)
-                j = i + 1
-                # position = 'single ' + str(j)
-                position = str(j)
-                noise_position.append(position)
-            else:
-                if i > 0:
-                    if (i+5) < len(convolved):
-                        power1[i] = np.sqrt(sigma3 / 2)
-                        power2[i] = np.sqrt(sigma3 / 2)
-                        power1[i+1] = np.sqrt(sigma3 / 2)
-                        power2[i+1] = np.sqrt(sigma3 / 2)
-                        power1[i+2] = np.sqrt(sigma3 / 2)
-                        power2[i+2] = np.sqrt(sigma3 / 2)
-                        power1[i+3] = np.sqrt(sigma3 / 2)
-                        power2[i+3] = np.sqrt(sigma3 / 2)
-                        power1[i+4] = np.sqrt(sigma3 / 2)
-                        power2[i+4] = np.sqrt(sigma3 / 2)
-                        # print('impulse_position_mutiple =', i + 1)
-                        j = i + 1
-                        # position = 'mutiple ' + str(j)
-                        for m in range(5):
-                            position = str(j)
-                            j += 1
-                            noise_position.append(position)
-    [noise_position_res.append(x)
-     for x in noise_position if x not in noise_position_res]
+            power1[i] = np.sqrt(sigma3 / 2)
+            power2[i] = np.sqrt(sigma3 / 2)
+            # print('impulse_position_single =', i + 1)
+            j = i + 1
+            # position = 'single ' + str(j)
+            position = str(j)
+            noise_position.append(position)
+    # [noise_position_res.append(x)
+    #  for x in noise_position if x not in noise_position_res]
     # print('Real anomaly is on the', noise_position_res)
     noise1 = np.multiply(power1, Gaussian.real)
     noise2 = np.multiply(power2, Gaussian.imag)
@@ -375,9 +353,11 @@ def channel_BG(signal, channelResponse, SNRdb):
     noise_symbol_real = noise_symbol.real
     noise_symbol_image = noise_symbol.imag
     noise_symbol = []
+    # noise_symbol = np.hstack([noise_symbol_real, noise_symbol_image])
+    # noise_symbol = np.reshape(noise_symbol, (1055, 2), order='F')
     for i in range(0, len(convolved)):
         noise_symbol.append(
-            np.sqrt((noise_symbol_image[i]**2)+(noise_symbol_real[i]**2)))
+            (noise_symbol_image[i]**2) + (noise_symbol_real[i]**2))
     noise_symbol = np.array(noise_symbol)
     # np.savetxt('Noise.txt', noise_BG)
     # np.savetxt('NoiseReal.txt', noise_BG.real)
@@ -385,8 +365,8 @@ def channel_BG(signal, channelResponse, SNRdb):
     # np.savetxt('NoiseSymbolReal.txt', noise_BG.real + convolved.real)
     # np.savetxt('NoiseSymbolImag.txt', noise_BG.imag + convolved.imag)
     np.savetxt(Noise_Symbol_filepath, noise_symbol)
-    np.savetxt(Noise_Position_filepath, noise_position_res, fmt="%s")
-    return noise_position_res, signal_power
+    np.savetxt(Noise_Position_filepath, noise_position, fmt="%s")
+    return noise_BG + convolved, noise_position, convolved
 
 
 def ofdm_simulate_BG(codeword, channelResponse, SNRdb):       # LJS
@@ -444,7 +424,8 @@ for x in range(total_epochs-valid_epochs):
         result = []
         for correct_data_check in range(100):
             # signal to noise-ratio in dB at the receiver
-            SNRdb = np.random.uniform(5, 26)
+            # SNRdb = np.random.uniform(5, 26)
+            SNRdb = 30
             datacheck, signal_power = ofdm_simulate_BG(
                 bits, channel_response, SNRdb)
             if len(datacheck) > 1:

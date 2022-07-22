@@ -1,0 +1,9 @@
+accuracy 99.81042742729187
+fbeta 98.05821776390076
+precision 99.99998807907104
+recall 33.33333134651184
+Selection_BER 0.0
+BER 0.0
+CONVENTIONAL_BER 0.0
+GRU_best_threshold 30.0
+conventional_best_threshold 4.25

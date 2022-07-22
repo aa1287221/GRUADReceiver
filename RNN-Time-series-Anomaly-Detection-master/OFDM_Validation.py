@@ -30,30 +30,6 @@ mapping_table = {
 
 demapping_table = {v: k for k, v in mapping_table.items()}
 
-total_epochs = 1000
-
-if os.path.isfile('checkpoint.txt'):
-    checkpoint = np.loadtxt('checkpoint.txt')
-else:
-    np.savetxt('checkpoint.txt', [0, 0, 0, 0, 0, 0, 0, 0, 0])
-    checkpoint = np.loadtxt('checkpoint.txt')
-valid_epochs = int(checkpoint[0])
-total_accuracy = float(checkpoint[1])
-total_fbeta = float(checkpoint[2])
-total_precision = float(checkpoint[3])
-total_recall = float(checkpoint[4])
-total_τ = float(checkpoint[5])
-total_signal_power = float(checkpoint[6])
-total_BER = float(checkpoint[7])
-total_impulse = int(checkpoint[8])
-
-if os.path.isfile('checkpoint_SNR.txt'):
-    checkpoint_SNR = np.loadtxt('checkpoint_SNR.txt')
-else:
-    np.savetxt('checkpoint_SNR.txt',
-               np.reshape([5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], (26, 4), order='F'))
-    checkpoint_SNR = np.loadtxt('checkpoint_SNR.txt')
-
 
 def anomaly_detection(besttau):
     import argparse
@@ -286,72 +262,32 @@ def addCP(OFDM_time):
     cp = OFDM_time[-CP:]  # take the last CP samples ...
     return np.hstack([cp, OFDM_time])  # ... and add them to the beginning
 
+    # construct the another version is including impulse noise(LJS)
 
-# construct the another version is including impulse noise(LJS)
+
 def channel_BG(signal, channelResponse, SNRdb):
-    # Bernoulli-Gaussian channel          # lJS
-    # IGR = 50  # impulse gaussian ratio
+    SINRdb = -15
     prob = 0.001  # prob
-    # prob = np.random.uniform(0.001, 0.01)
     convolved = np.convolve(signal, channelResponse)
     signal_power = np.mean(abs(convolved**2))
     sigma2 = signal_power * 10**(-SNRdb / 10)      # (signal_power/2)  (LJS)
-    # sigma3 = sigma2 * IGR
-    # sigma3 = 15
-    sigma3 = signal_power * \
-        np.random.uniform(10*np.log10(3.1622776602), 10*np.log10(10))
+    sigma3 = signal_power * 10**(-SINRdb / 10)
     Gaussian = np.random.randn(*convolved.shape) + 1j * \
         np.random.randn(*convolved.shape)
     power1 = np.zeros([*convolved.shape])
     power2 = np.zeros([*convolved.shape])
     noise_position = []
-    noise_position_res = []
-    # print('Channel Length :', len(channelResponse))
-    # print('Bits Length :', len(convolved))
-    # print('IGR :', IGR)
-    # print('Signal Power :', signal_power)
-    # print('AWGN Power :', sigma2)
-    # print('Impulse Power :', sigma3)
-    # print('SNR:', SNRdb)
-    # print('Impulse Probability :', prob*100, '%')
     for i in range(*convolved.shape):
         power1[i] = np.sqrt(sigma2 / 2)
         power2[i] = np.sqrt(sigma2 / 2)
     for i in range(*convolved.shape):
         k = np.random.rand()
-        n = np.random.binomial(n=1, p=0.5)
-        c = np.random.randint(low=2, high=4)
         if k <= prob:
-            if n == 1:
-                power1[i] = np.sqrt(sigma3 / 2)
-                power2[i] = np.sqrt(sigma3 / 2)
-                # print('impulse_position_single =', i + 1)
-                j = i + 1
-                # position = 'single ' + str(j)
-                position = str(j)
-                noise_position.append(position)
-            else:
-                if i > 0:
-                    if (i+c) < len(convolved):
-                        for ii in range(c):
-                            power1[ii+i] = np.sqrt(sigma3 / 2)
-                            power2[ii+i] = np.sqrt(sigma3 / 2)
-                            # power1[i+1] = np.sqrt(sigma3 / 2)
-                            # power2[i+1] = np.sqrt(sigma3 / 2)
-                            # power1[i+2] = np.sqrt(sigma3 / 2)
-                            # power2[i+2] = np.sqrt(sigma3 / 2)
-                            # power1[i+3] = np.sqrt(sigma3 / 2)
-                            # power2[i+3] = np.sqrt(sigma3 / 2)
-                            # power1[i+4] = np.sqrt(sigma3 / 2)
-                            # power2[i+4] = np.sqrt(sigma3 / 2)
-                            # print('impulse_position_mutiple =', i + 1)
-                            j = i + ii + 1
-                            # position = 'mutiple ' + str(j)
-                            position = str(j)
-                            noise_position.append(position)
-    [noise_position_res.append(x)
-     for x in noise_position if x not in noise_position_res]
-    # print('Real anomaly is on the', noise_position_res)
+            power1[i] = np.sqrt(sigma3 / 2)
+            power2[i] = np.sqrt(sigma3 / 2)
+            j = i + 1
+            position = str(j)
+            noise_position.append(position)
     noise1 = np.multiply(power1, Gaussian.real)
     noise2 = np.multiply(power2, Gaussian.imag)
     noise_BG = np.zeros([*convolved.shape]).astype(complex)
@@ -365,14 +301,11 @@ def channel_BG(signal, channelResponse, SNRdb):
         noise_symbol.append(
             (noise_symbol_image[i]**2) + (noise_symbol_real[i]**2))
     noise_symbol = np.array(noise_symbol)
-    # np.savetxt('Noise.txt', noise_BG)
-    # np.savetxt('NoiseReal.txt', noise_BG.real)
-    # np.savetxt('NoiseImag.txt', noise_BG.imag)
-    # np.savetxt('NoiseSymbolReal.txt', noise_BG.real + convolved.real)
-    # np.savetxt('NoiseSymbolImag.txt', noise_BG.imag + convolved.imag)
+    if len(noise_position) < 2:
+        noise_position.extend([1054, 1055])
     np.savetxt(Noise_Symbol_filepath, noise_symbol)
-    np.savetxt(Noise_Position_filepath, noise_position_res, fmt="%s")
-    return noise_BG + convolved, noise_position_res, signal_power
+    np.savetxt(Noise_Position_filepath, noise_position, fmt="%s")
+    return noise_BG + convolved, noise_position, convolved, sigma2, sigma3
 
 
 def removeCP(signal):
@@ -382,27 +315,26 @@ def removeCP(signal):
 def DFT(OFDM_RX):
     return np.fft.fft(OFDM_RX / np.sqrt(K))
 
-
-# def channelEstimate(OFDM_demod):
-#     # extract the pilot values from the RX signal
-#     pilots = OFDM_demod[pilotCarriers]
-#     Hest_at_pilots = pilots / pilotValue  # divide by the transmitted pilot values
-#
-#     # Perform interpolation between the pilot carriers to get an estimate
-#     # of the channel in the data carriers. Here, we interpolate absolute value and phase
-#     # separately
-#     Hest_abs = scipy.interpolate.interp1d(
-#         pilotCarriers, abs(Hest_at_pilots), kind='linear')(allCarriers)
-#     Hest_phase = scipy.interpolate.interp1d(
-#         pilotCarriers, np.angle(Hest_at_pilots), kind='linear')(allCarriers)
-#     Hest = Hest_abs * np.exp(1j * Hest_phase)
-#     return Hest
+    # def channelEstimate(OFDM_demod):
+    #     # extract the pilot values from the RX signal
+    #     pilots = OFDM_demod[pilotCarriers]
+    #     Hest_at_pilots = pilots / pilotValue  # divide by the transmitted pilot values
+    #
+    #     # Perform interpolation between the pilot carriers to get an estimate
+    #     # of the channel in the data carriers. Here, we interpolate absolute value and phase
+    #     # separately
+    #     Hest_abs = scipy.interpolate.interp1d(
+    #         pilotCarriers, abs(Hest_at_pilots), kind='linear')(allCarriers)
+    #     Hest_phase = scipy.interpolate.interp1d(
+    #         pilotCarriers, np.angle(Hest_at_pilots), kind='linear')(allCarriers)
+    #     Hest = Hest_abs * np.exp(1j * Hest_phase)
+    #     return Hest
 
 
 def equalize(OFDM_demod, Hest):
-    Hest = np.linalg.inv(Hest)
+    # Hest = np.linalg.inv(Hest)
     # OFDM_demod = np.expand_dims(OFDM_demod, axis=1)
-    return np.matmul(Hest, OFDM_demod)
+    return OFDM_demod / Hest
 
 
 def get_payload(equalized):
@@ -432,6 +364,18 @@ def PS(bits):
     return bits.reshape((-1,))
 
 
+def OFDM_Receiver(OFDM_RX_noCP, Hest, bits):
+    OFDM_demod = DFT(OFDM_RX_noCP)
+    equalized_Hest = equalize(OFDM_demod, Hest)
+    QAM_est = get_payload(equalized_Hest)
+    PS_est, hardDecision = Demapping(QAM_est)
+    bits_est = PS(PS_est)
+    BER = np.mean(abs(bits - bits_est))
+    return BER
+
+
+SelectorCONVENTIONAL = 0
+SelectorGRU = 0
 H_folder_test = '../RNN-Time-series-Anomaly-Detection-master/test/'
 test_idx_low = 301
 test_idx_high = 401
@@ -445,163 +389,171 @@ for test_idx in range(test_idx_low, test_idx_high):
             # np.shape(numbers_str)=32 x 1
             numbers_float = [float(x) for x in numbers_str]
             # np.shape(numbers_float)=32 x 1
-            h_response = np.asarray(numbers_float[0:int(len(numbers_float) / 2)]) + \
+            h_response = np.asarray(numbers_float[0:int(len(numbers_float) / 2)]) +\
                 1j * \
                 np.asarray(
-                             numbers_float[int(len(numbers_float) / 2):len(numbers_float)])
+                    numbers_float[int(len(numbers_float) / 2):len(numbers_float)])
             channel_response_set_test.append(h_response)
 
-for x in range(total_epochs - valid_epochs):
-    checkpoint = []
-    result = []
-    OFDM_RX_CHANNEL = 0
-    OFDM_RX_CHANNEL_INFORMATION = []
-    bestBER = 0
-    besttau = 0
-    channel_response = channel_response_set_test[np.random.randint(
-        0, len(channel_response_set_test))]
-    # H_exact = np.fft.fft(channel_response, K)
-    for i in range(1024):
-        OFDM_RX_CHANNEL = 0
-        for ithChannel in range(16):
-            OFDM_RX_CHANNEL += channel_response[ithChannel] * \
-                np.exp((-1j)*(2*np.pi*ithChannel*i)/1024)
-        OFDM_RX_CHANNEL_INFORMATION.append(OFDM_RX_CHANNEL)
-    Hest = np.diag(OFDM_RX_CHANNEL_INFORMATION)
-    bits = np.random.binomial(n=1, p=0.5, size=(payloadBits_per_OFDM, ))
-    # ofdm_simulate_BG(bits, SNRdb)
-    bits_SP = SP(bits)
-    QAM = Modulation(bits_SP)
-    OFDM_data = OFDM_symbol(QAM)
-    OFDM_time = IDFT(OFDM_data)
-    OFDM_withCP = addCP(OFDM_time)
-    OFDM_TX = OFDM_withCP
-    for correct_data_check in range(1000):
-        # signal to noise-ratio in dB at the receiver
-        # SNRdb = np.random.randint(5, 26)
-        SNRdb = 30
-        OFDM_RX, datacheck, signal_power = channel_BG(
+for SNR in range(1):
+    if os.path.isfile('SNR.txt'):
+        SNRdb = np.loadtxt('SNR.txt')
+    else:
+        np.savetxt('SNR.txt', [0])
+        SNRdb = np.loadtxt('SNR.txt')
+    if SNRdb == 50.0:
+        break
+    if os.path.isfile('checkpoint.txt'):
+        checkpoint = np.loadtxt('checkpoint.txt')
+    else:
+        np.savetxt('checkpoint.txt', [0, 0, 0, 0, 0, 0, 0])
+        checkpoint = np.loadtxt('checkpoint.txt')
+    valid_epochs = int(checkpoint[0])
+    total_accuracy = float(checkpoint[1])
+    total_fbeta = float(checkpoint[2])
+    total_precision = float(checkpoint[3])
+    total_recall = float(checkpoint[4])
+    total_BER = float(checkpoint[5])
+    total_conventional_BER = float(checkpoint[6])
+    # tau = [18.33, 20.205, 19.675, 20.535, 20.1,
+    #        20.09, 20.405, 19.86, 19.075, 18.97]
+    tau = 5
+    SNRdb += 5
+    # tau = tau[int((SNRdb/5)-1)]
+    # th = th[int((SNRdb/5)-1)]
+    if SNRdb < 25:
+        total_epochs = 1000
+    else:
+        total_epochs = 5000
+    print(total_epochs)
+    txtname = 'resultSNR'+str(SNRdb)+'.txt'
+    for x in range(total_epochs - valid_epochs):
+        Eyksk = 0
+        Eykyk = 0
+        checkpoint = []
+        result = []
+        output_SNR = []
+        threshold = []
+        output_SNR_tau = []
+        threshold_tau = []
+        SNR_checkpoint = []
+        np.random.seed(0)
+        channel_response = channel_response_set_test[np.random.randint(
+            0, len(channel_response_set_test))]
+        np.random.seed()
+        Hest = np.fft.fft(channel_response, K)
+        bits = np.random.binomial(n=1, p=0.5, size=(payloadBits_per_OFDM, ))
+        bits_SP = SP(bits)
+        QAM = Modulation(bits_SP)
+        OFDM_data = OFDM_symbol(QAM)
+        OFDM_time = IDFT(OFDM_data)
+        OFDM_withCP = addCP(OFDM_time)
+        OFDM_TX = OFDM_withCP
+        OFDM_RX, datacheck, convolved, w, g = channel_BG(
             OFDM_TX, channel_response, SNRdb)
-        if len(datacheck) > 1:
-            break
-    generate_dataset()
-    for tau in range(10, 100, 10):
+        p = [0.999, 0.001]
+        dk = [w, w+g]
+        generate_dataset()
+
+        Conventional_OFDM_RX = np.copy(OFDM_RX)
+        Conventional_OFDM_RX = removeCP(Conventional_OFDM_RX)
+        for th in np.arange(0.5, 15.25, 0.25):
+            OFDM_RX_ORIGIN = np.copy(Conventional_OFDM_RX)
+            Eyksk = ((1+((th**2)/(2*(1+dk[0]))))*p[0]*(np.exp(-((th**2)/(2*(1+dk[0]))))))+(
+                (1+((th**2)/(2*(1+dk[1]))))*p[1]*(np.exp(-((th**2)/(2*(1+dk[1]))))))
+            Eykyk = (p[0]*(dk[0]-(((th**2)/2)+(1+dk[0]))*(np.exp(-((th**2)/(2*(1+dk[0]))))))) + \
+                (p[1]*(dk[1]-(((th**2)/2)+(1+dk[1]))
+                 * (np.exp(-((th**2)/(2*(1+dk[1])))))))
+            alpha = 1-Eyksk
+            eout = 2+(2*Eykyk)
+            gamma = ((eout/(2*(alpha**2)))-1)**(-1)
+            output_SNR.append(10*np.log(np.abs(gamma))/2)
+            threshold.append(th)
+        norm = np.abs(np.copy(Conventional_OFDM_RX))
+        th_index = output_SNR.index(max(output_SNR))
+        best_th = [threshold[th_index]]
+        cc = []
+        for Known_impulse in range(*Conventional_OFDM_RX.shape):
+            if (norm[int(Known_impulse)]) > best_th:
+                Conventional_OFDM_RX[int(Known_impulse)] = 0
+                cc.append(Known_impulse)
+        CONVENTIONALBER = OFDM_Receiver(Conventional_OFDM_RX, Hest, bits)
+
         accuracy, fbeta, precision, recall, τ, error_point = anomaly_detection(
             tau)
         Unknown_OFDM_RX = np.copy(OFDM_RX)
-        # for impulse in error_point:
-        #     # Unknown_OFDM_RX[int(impulse)-1] = 0
-        #     clipper_threshold = 0.5
-        #     norm = np.abs(Unknown_OFDM_RX)
-        #     angle = np.angle(Unknown_OFDM_RX)
-        #     if norm[int(impulse)-1] >= clipper_threshold:
-        #         Unknown_OFDM_RX.real[int(
-        #             impulse)-1] = clipper_threshold * np.cos(angle[int(impulse)-1])
-        #         Unknown_OFDM_RX.imag[int(
-        #             impulse)-1] = clipper_threshold * np.sin(angle[int(impulse)-1])
-        OFDM_RX_noCP = removeCP(Unknown_OFDM_RX)
-        OFDM_demod = DFT(OFDM_RX_noCP)
-        equalized_Hest = equalize(OFDM_demod, Hest)
-        QAM_est = get_payload(equalized_Hest)
-        PS_est, hardDecision = Demapping(QAM_est)
-        bits_est = PS(PS_est)
-        BER = np.sum(abs(bits - bits_est)) / len(bits)
-        if bestBER == 0:
-            bestBER = BER
-            besttau = tau
-        if bestBER > BER:
-            bestBER = BER
-            besttau = tau
-        if BER == 0:
-            break
-        # print(error_point)
-        # print(datacheck)
-        # print(tau)
-    #     print(BER)
-    # print(bestBER)
-    # print(besttau)
-    total_accuracy += accuracy
-    total_fbeta += fbeta
-    total_precision += precision
-    total_recall += recall
-    total_τ += besttau
-    total_signal_power += signal_power
-    total_BER += bestBER
-    total_impulse += len(datacheck)
-    valid_epochs += 1
-    avg_accuracy = (total_accuracy / valid_epochs) * 100
-    avg_fbeta = (total_fbeta / valid_epochs) * 100
-    avg_precision = (total_precision / valid_epochs) * 100
-    avg_recall = (total_recall / valid_epochs) * 100
-    avg_τ = (total_τ / valid_epochs)
-    avg_signal_power = (total_signal_power / valid_epochs)
-    avg_BER = (total_BER / valid_epochs)
-    avg_impulse_prob = (total_impulse/(1055*valid_epochs)) * 100
-    # index_SNR = SNRdb - 5
-    # checkpoint_SNR[index_SNR, 1] += accuracy  # total_accuracy_index_SNR
-    # checkpoint_SNR[index_SNR, 2] += fbeta  # total_fbeta_index_SNR
-    # checkpoint_SNR[index_SNR, 3] += 1  # total_avg_index_SNR
-    checkpoint.extend([valid_epochs,
-                       total_accuracy,
-                       total_fbeta,
-                       total_precision,
-                       total_recall,
-                       total_τ,
-                       total_signal_power,
-                       total_BER,
-                       total_impulse])
-    np.savetxt('checkpoint.txt', checkpoint)
-    # np.savetxt('checkpoint_SNR.txt', checkpoint_SNR)
-    if valid_epochs % 1 == 0:
-        print('-' * 120)
-        print('Ac:', accuracy, ' F-beta:',
-              fbeta, ' Pr:', precision, ' Rc:', recall, ' BER:', bestBER, ' IN_prob:', (len(datacheck)/1055))
-        print('-' * 120)
-        print(
-            'epoch '
-            + str(valid_epochs)
-            + '\navg.accuracy = '
-            + str(avg_accuracy)
-            + ' %\navg.f-beta = '
-            + str(avg_fbeta)
-            + ' %\navg.precision = '
-            + str(avg_precision)
-            + ' %\navg.recall = '
-            + str(avg_recall)
-            + ' %\navg.τ = '
-            + str(avg_τ)
-            + ' \navg.signal power = '
-            + str(avg_signal_power)
-            + ' \navg.BER = '
-            + str(avg_BER)
-            + ' \navg.impulse_prob = '
-            + str(avg_impulse_prob)
-            + ' %')
+        normGRU = np.abs(np.copy(Unknown_OFDM_RX))
+        c = 0
+        for impulse in error_point:
+            if (normGRU[int(impulse)-1]) > best_th:
+                c += 1
+                Unknown_OFDM_RX[int(impulse)-1] = 0
+        print(error_point)
+        print(np.array(cc)+17)
+        # print(c)
+        Unknown_OFDM_RX_noCP = removeCP(Unknown_OFDM_RX)
+        GRUBER = OFDM_Receiver(Unknown_OFDM_RX_noCP, Hest, bits)
 
-result.extend(['accuracy',
-               'fbeta',
-               'precision',
-               'recall',
-               'τ',
-               'signal_power',
-               'BER',
-               'impulse_prob',
-               avg_accuracy,
-               avg_fbeta,
-               avg_precision,
-               avg_recall,
-               avg_τ,
-               avg_signal_power,
-               avg_BER,
-               avg_impulse_prob])
+        total_accuracy += accuracy
+        total_fbeta += fbeta
+        total_precision += precision
+        total_recall += recall
+        total_BER += GRUBER
+        total_conventional_BER += CONVENTIONALBER
+        valid_epochs += 1
+        avg_accuracy = (total_accuracy / valid_epochs) * 100
+        avg_fbeta = (total_fbeta / valid_epochs) * 100
+        avg_precision = (total_precision / valid_epochs) * 100
+        avg_recall = (total_recall / valid_epochs) * 100
+        avg_BER = (total_BER / valid_epochs)
+        avg_conventional_BER = (total_conventional_BER / valid_epochs)
+        checkpoint.extend([valid_epochs,
+                           total_accuracy,
+                           total_fbeta,
+                           total_precision,
+                           total_recall,
+                           total_BER,
+                           total_conventional_BER])
+        np.savetxt('checkpoint.txt', checkpoint)
+        if valid_epochs % 1 == 0:
+            print('-' * 120)
+            print('Ac:', accuracy, ' F-beta:',
+                  fbeta, ' Pr:', precision, ' Rc:', recall, ' BER:', GRUBER, ' CONVENTIONALBER:', CONVENTIONALBER)
+            print('-' * 120)
+            print(
+                'epoch '
+                + str(valid_epochs)
+                + '\navg.accuracy = '
+                + str(avg_accuracy)
+                + ' %\navg.f-beta = '
+                + str(avg_fbeta)
+                + ' %\navg.precision = '
+                + str(avg_precision)
+                + ' %\navg.recall = '
+                + str(avg_recall)
+                + ' \navg.BER = '
+                + str(avg_BER)
+                + ' \navg.conventional BER = '
+                + str(avg_conventional_BER))
+            print('Current SNR:', SNRdb)
+    result.extend(['accuracy',
+                   'fbeta',
+                   'precision',
+                   'recall',
+                   'BER',
+                   'CONVENTIONAL_BER',
+                   avg_accuracy,
+                   avg_fbeta,
+                   avg_precision,
+                   avg_recall,
+                   avg_BER,
+                   avg_conventional_BER])
 
-# for SNR in range(21):
-#     checkpoint_SNR[SNR, 1] = checkpoint_SNR[SNR, 1] / checkpoint_SNR[SNR, 3]
-#     checkpoint_SNR[SNR, 2] = checkpoint_SNR[SNR, 2] / checkpoint_SNR[SNR, 3]
-
-if valid_epochs == total_epochs:
-    np.savetxt('resultSNR30.txt', np.reshape(
-        result, (8, 2), order='F'), fmt="%s")
-    # np.savetxt('SNR_resultSNR35.txt', checkpoint_SNR, fmt="%s")
-    os.remove('checkpoint.txt')
-    # os.remove('checkpoint_SNR.txt')
+    if valid_epochs == total_epochs:
+        np.savetxt(txtname, np.reshape(
+            result, (6, 2), order='F'), fmt="%s")
+        SNR_checkpoint.append(SNRdb)
+        np.savetxt('SNR.txt', SNR_checkpoint)
+        os.remove('checkpoint.txt')
+    if SNRdb == 50:
+        os.remove('SNR.txt')

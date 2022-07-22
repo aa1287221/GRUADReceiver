@@ -28,7 +28,7 @@ parser.add_argument('--nlayers', type=int, default=4,
                     help='number of layers')
 parser.add_argument('--res_connection', action='store_true',
                     help='residual connection')
-parser.add_argument('--lr', type=float, default=0.1,  # 0.0002
+parser.add_argument('--lr', type=float, default=0.0002,  # 0.0002
                     help='initial learning rate')
 parser.add_argument('--lr_scheduler', type=int, default=25,
                     help='lr scheduler reduce interval')
@@ -36,7 +36,7 @@ parser.add_argument('--weight_decay', type=float, default=1e-4,
                     help='weight decay')
 parser.add_argument('--clip', type=float, default=10,
                     help='gradient clipping')
-parser.add_argument('--epochs', type=int, default=400,
+parser.add_argument('--epochs', type=int, default=500,
                     help='upper epoch limit')
 parser.add_argument('--batch_size', type=int, default=64, metavar='N',
                     help='batch size')
@@ -54,7 +54,7 @@ parser.add_argument('--seed', type=int, default=1111,
                     help='random seed')
 parser.add_argument('--device', type=str, default='cuda',
                     help='cuda or cpu')
-parser.add_argument('--log_interval', type=int, default=1, metavar='N',
+parser.add_argument('--log_interval', type=int, default=156, metavar='N',
                     help='report interval')
 parser.add_argument('--save_interval', type=int, default=100, metavar='N',
                     help='save interval')

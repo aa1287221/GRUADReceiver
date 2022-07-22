@@ -1,0 +1,35 @@
+import numpy as np
+from matplotlib import pyplot as plt
+from math import log
+
+# BERGRU = [0.09176029049075925, 0.03481869692807193, 0.012553852397602398, 0.00555596747002997, 0.003007734453046953,
+#           0.0022145822927072925, 0.002225801542207792, 0.00204483016983017, 0.002207265390859141, 0.0018165428321678322]
+# BERCONVENTIONAL = [0.09082275146728272, 0.033450436282467536, 0.011421195991508492, 0.004304777253996004, 0.0017887386051448552,
+#                    0.0012965550074925075, 0.0011287540584415585, 0.0009663188374125874, 0.0009858305756743257, 0.0008887596778221779]
+BERGRU = [0.09620458984375, 0.03864990234375, 0.0139833984375, 0.0057421875, 0.004009602864583333,
+          0.003060302734375, 0.002518310546875, 0.002318310546875, 0.002218310546875, 0.002318310546875]
+BERCONVENTIONAL = [0.0914560546875, 0.03268359375, 0.01149462890625, 0.0035115559895833332,
+                   0.0017244466145833334, 0.00104541015625, 0.00091796875, 0.000894541015625, 0.000924541015625, 0.000884541015625]
+BERCONVENTIONAL20db = []
+SNR = [5, 10, 15, 20, 25, 30, 35, 40, 45, 50]
+
+plt.figure(figsize=(6, 6))
+BERGRU = plt.plot(SNR, BERGRU, label='GRU')
+BERCONVENTIONAL = plt.plot(
+    SNR, BERCONVENTIONAL, label='CONVENTIONAL')
+# plt.xlim(25, 75)
+plt.xticks(SNR)
+plt.yscale('log')
+plt.yticks([10**(-4), 10**(-3), 10**(-2), 10**(-1)])
+plt.grid(True)
+plt.title('OFDM Simulate on 1000 Blocks Validation',
+          fontsize=14, fontweight='bold')
+plt.ylabel('BER', fontsize=10, fontweight='bold')
+plt.xlabel('SNR(Eb/N0)', fontsize=10, fontweight='bold')
+plt.setp(BERGRU, marker='o',
+         linestyle='-', markersize=5, linewidth=1)
+plt.setp(BERCONVENTIONAL, color='red', marker='*',
+         linestyle='-', markersize=5, linewidth=1)
+plt.legend()
+plt.savefig('OFDM Simulate on 1000 Blocks.jpg')
+plt.cla()

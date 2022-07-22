@@ -4,7 +4,7 @@ Noise_Position_filepath = '/home/wky/GRUADReceiver/RNN-Time-series-Anomaly-Detec
 Noise_Symbol_filepath = '/home/wky/GRUADReceiver/RNN-Time-series-Anomaly-Detection-master/dataset/ofdm/raw/NoiseSymbol.txt'
 
 K = 1024  # subcarriers = K
-CP = K // 64
+CP = 16
 # P = 64  # number of pilot carriers per OFDM block
 mu = 2    # one symbol combined with two bits for QAM or QPSK (LJS)
 # payloadbits per OFDM version 2 (decided by how many data carriers per OFDM , LJS)
@@ -73,8 +73,8 @@ def channel_BG(signal, channelResponse, SNRdb, y):
         if k <= prob:
             if y < 50:
                 if n == 1:
-                    power1[i] = np.sqrt(sigma3 / 2)
-                    power2[i] = np.sqrt(sigma3 / 2)
+                    # power1[i] = np.sqrt(sigma3 / 2)
+                    # power2[i] = np.sqrt(sigma3 / 2)
                     # print('impulse_position_single =', i + 1)
                     j = i + 1
                     # position = 'single ' + str(j)
@@ -84,8 +84,8 @@ def channel_BG(signal, channelResponse, SNRdb, y):
                     if i > 0:
                         if (i+c) < len(convolved):
                             for ii in range(c):
-                                power1[i] = np.sqrt(sigma3 / 2)
-                                power2[i] = np.sqrt(sigma3 / 2)
+                                # power1[ii+i] = np.sqrt(sigma3 / 2)
+                                # power2[ii+i] = np.sqrt(sigma3 / 2)
                                 # power1[i+1] = np.sqrt(sigma3 / 2)
                                 # power2[i+1] = np.sqrt(sigma3 / 2)
                                 # power1[i+2] = np.sqrt(sigma3 / 2)
@@ -177,7 +177,8 @@ for y in range(100):
         np.random.seed(0)
         bits = np.random.binomial(n=1, p=0.5, size=(payloadBits_per_OFDM, ))
         np.random.seed()
-        SNRdb = np.random.uniform(0, 100)
+        # SNRdb = np.random.uniform(0, 100)
+        SNRdb = 50
         channel_response = channel_response_set_test[np.random.randint(
             0, len(channel_response_set_test))]
         noise_symbol, noise_position_res = ofdm_simulate_BG(

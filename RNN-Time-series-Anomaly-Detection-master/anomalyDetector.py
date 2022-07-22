@@ -95,7 +95,8 @@ def anomalyScore(args, model, dataset, mean, cov, channel_idx=0, score_predictor
     scores = torch.stack(scores)
     rearranged = torch.cat(rearranged, dim=0)
     errors = torch.cat(errors, dim=0)
-
+    np.savetxt('error.txt', errors.cpu().data.numpy())
+    np.savetxt('mean.txt', mean.unsqueeze(0).cpu().data.numpy())
     return scores, rearranged, errors, hiddens, predicted_scores
 
 

@@ -20,9 +20,9 @@ class RNNPredictor(nn.Module):
             self.rnn = getattr(nn, rnn_type)(
                 rnn_inp_size, rnn_hid_size, nlayers, dropout=dropout)
         elif rnn_type == 'SRU':
-            from sru import SRU, SRUCell
+            from cuda_functional import SRU, SRUCell
             self.rnn = SRU(input_size=rnn_inp_size, hidden_size=rnn_hid_size, num_layers=nlayers, dropout=dropout,
-                           use_tanh=False, layer_norm=True)
+                           use_tanh=False, use_selu=True, layer_norm=True)
         else:
             try:
                 nonlinearity = {'RNN_TANH': 'tanh',

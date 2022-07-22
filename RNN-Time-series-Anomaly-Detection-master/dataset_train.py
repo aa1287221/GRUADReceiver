@@ -55,6 +55,6 @@ for dataname in urls:
             labeled_test_dir.mkdir(parents=True, exist_ok=True)
             if filepath.name == 'NoiseSymbol.txt':
                 with open(str(labeled_train_dir.joinpath(filepath.name).with_suffix('.pkl')), 'wb') as pkl:
-                    pickle.dump(labeled_data[52750:], pkl)
+                    pickle.dump(labeled_data[263750:], pkl)
                 with open(str(labeled_test_dir.joinpath(filepath.name).with_suffix('.pkl')), 'wb') as pkl:
-                    pickle.dump(labeled_data[:52750], pkl)
+                    pickle.dump(labeled_data[:263750], pkl)

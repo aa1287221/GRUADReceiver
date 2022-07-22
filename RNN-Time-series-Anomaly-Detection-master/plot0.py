@@ -1,27 +1,33 @@
 import numpy as np
 from matplotlib import pyplot as plt
 from math import log
-BER = [
-    0.22344474860335103,
-    0.1551048044692742,
-    0.12530491620111742,
-    0.11669916201117268,
-    0.11278150837988819,
-    0.11130162011173199]
-SNR = [5, 10, 15, 20, 25, 30]
-plt.figure(figsize=(7,4))
-OFDM = plt.plot(SNR,BER)
-plt.xlim(0, 35)
-plt.xticks([0, 5, 10, 15, 20, 25, 30, 35])
-plt.yscale('log')
-plt.yticks([10**(-2), 10**(-1), 10**0])
+BER = np.abs(np.loadtxt('error.txt'))
+MEAN = np.loadtxt('mean.txt')
+# BER = [
+#     0.22344474860335103,
+#     0.1551048044692742,
+#     0.12530491620111742,
+#     0.11669916201117268,
+#     0.11278150837988819,
+#     0.11130162011173199]
+# SNR = [5, 10, 15, 20, 25, 30]
+plt.figure(figsize=(7, 4))
+OFDM = plt.hist(BER)
+# MEAN = plt.plot(MEAN)
+# plt.xlim(0, 35)
+# plt.xticks([0, 5, 10, 15, 20, 25, 30, 35])
+# plt.yscale('log')
+# plt.yticks([10**(-2), 10**(-1), 10**0])
 plt.grid(True)
-plt.title('OFDM Simulate on 10000 Blocks Validation',
+plt.yscale('log')
+plt.title('Variance',
           fontsize=14, fontweight='bold')
-plt.ylabel('BER', fontsize=10, fontweight='bold')
-plt.xlabel('SNR(Eb/N0)', fontsize=10, fontweight='bold')
-plt.setp(OFDM, marker='o',
-         linestyle='-', markersize=5, linewidth=1)
+plt.xlabel('Error', fontsize=10, fontweight='bold')
+plt.ylabel('Frequency', fontsize=10, fontweight='bold')
+# plt.setp(OFDM, marker='o',
+#          linestyle='-', markersize=5, linewidth=1)
+# plt.setp(MEAN, color='red', marker='o',
+#          linestyle='-', markersize=5, linewidth=1)
 plt.savefig('OFDM Simulate on 10000 Blocks.jpg')
 plt.cla()
 # Fb38 = plt.plot(SNR38, FBETA38, label='Threshold 38%')

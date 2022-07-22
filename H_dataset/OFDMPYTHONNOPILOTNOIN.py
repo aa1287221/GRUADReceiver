@@ -46,10 +46,6 @@ for test_idx in range(test_idx_low, test_idx_high):
                     numbers_float[int(len(numbers_float) / 2):len(numbers_float)])
             channel_response_set_test.append(h_response)
 
-# H_exact = np.fft.fft(channelResponse, K)
-
-SNRdb = 10  # signal to noise-ratio in dB at the receiver
-
 
 def SP(bits):
     return bits.reshape((len(dataCarriers), mu))
@@ -75,69 +71,35 @@ def addCP(OFDM_time):
     return np.hstack([cp, OFDM_time])  # ... and add them to the beginning
 
 
-def channel(signal):
+def channel(signal, channelResponse, SNRdb):
     # Bernoulli-Gaussian channel          # lJS
-    # IGR = 50  # impulse gaussian ratio
-    # prob = np.random.uniform(0.0001, 0.001)
-    prob = 0.001
+    prob = 0.005
+    SINRdb = -15
     convolved = np.convolve(signal, channelResponse)
+    # convolved = signal
     signal_power = np.mean(abs(convolved**2))
     sigma2 = signal_power * 10**(-SNRdb / 10)      # (signal_power/2)  (LJS)
-    # sigma3 = sigma2 * IGR
-    # sigma3 = 15
-    sigma3 = signal_power * \
-        np.random.uniform(10*np.log10(3.1622776602), 10*np.log10(10))
+    sigma3 = signal_power * 10**(-SINRdb / 10)
     Gaussian = np.random.randn(*convolved.shape) + 1j * \
         np.random.randn(*convolved.shape)
     power1 = np.zeros([*convolved.shape])
     power2 = np.zeros([*convolved.shape])
     noise_position = []
-    noise_position_res = []
-    # print('Channel Length :', len(channelResponse))
-    # print('Bits Length :', len(convolved))
-    # print('IGR :', IGR)
-    # print('Signal Power :', signal_power)
-    # print('AWGN Power :', sigma2)
-    # print('Impulse Power :', sigma3)
-    # print('SNR:', SNRdb)
-    # print('Impulse Probability :', prob*100, '%')
     for i in range(*convolved.shape):
         power1[i] = np.sqrt(sigma2 / 2)
         power2[i] = np.sqrt(sigma2 / 2)
     for i in range(*convolved.shape):
         k = np.random.rand()
-        n = np.random.binomial(n=1, p=0.5)
-        c = np.random.randint(low=2, high=4)
         if k <= prob:
-            if n == 1:
-                power1[i] = np.sqrt(sigma3 / 2)
-                power2[i] = np.sqrt(sigma3 / 2)
-                # print('impulse_position_single =', i + 1)
-                j = i + 1
-                # position = 'single ' + str(j)
-                position = str(j)
-                noise_position.append(position)
-            else:
-                if i > 0:
-                    if (i+c) < len(convolved):
-                        for ii in range(c):
-                            power1[ii+i] = np.sqrt(sigma3 / 2)
-                            power2[ii+i] = np.sqrt(sigma3 / 2)
-                            # power1[i+1] = np.sqrt(sigma3 / 2)
-                            # power2[i+1] = np.sqrt(sigma3 / 2)
-                            # power1[i+2] = np.sqrt(sigma3 / 2)
-                            # power2[i+2] = np.sqrt(sigma3 / 2)
-                            # power1[i+3] = np.sqrt(sigma3 / 2)
-                            # power2[i+3] = np.sqrt(sigma3 / 2)
-                            # power1[i+4] = np.sqrt(sigma3 / 2)
-                            # power2[i+4] = np.sqrt(sigma3 / 2)
-                            # print('impulse_position_mutiple =', i + 1)
-                            j = i + ii + 1
-                            # position = 'mutiple ' + str(j)
-                            position = str(j)
-                            noise_position.append(position)
-    [noise_position_res.append(x)
-     for x in noise_position if x not in noise_position_res]
+            power1[i] = np.sqrt(sigma3 / 2)
+            power2[i] = np.sqrt(sigma3 / 2)
+            # print('impulse_position_single =', i + 1)
+            j = i + 1
+            # position = 'single ' + str(j)
+            position = str(j)
+            noise_position.append(position)
+    # [noise_position_res.append(x)
+    #  for x in noise_position if x not in noise_position_res]
     # print('Real anomaly is on the', noise_position_res)
     noise1 = np.multiply(power1, Gaussian.real)
     noise2 = np.multiply(power2, Gaussian.imag)
@@ -145,7 +107,7 @@ def channel(signal):
     noise_BG.real = noise1
     noise_BG.imag = noise2
     noise_symbol = noise_BG + convolved     # NoiseSymbol
-    return noise_symbol, noise_position_res
+    return noise_symbol, convolved, noise_position, sigma2, sigma3
 
 
 def removeCP(signal):
@@ -184,9 +146,9 @@ def DFT(OFDM_RX):
 
 
 def equalize(OFDM_demod, Hest):
-    Hest = np.linalg.inv(Hest)
+    # Hest = np.linalg.inv(Hest)
     # OFDM_demod = np.expand_dims(OFDM_demod, axis=1)
-    return np.matmul(Hest, OFDM_demod)
+    return OFDM_demod / Hest
 
 
 def get_payload(equalized):
@@ -215,70 +177,100 @@ def PS(bits):
     return bits.reshape((-1,))
 
 
-# INCounter = 0
-total_epochs = 2000
-nonchannelsignal = 0
-channleinformation = 0
-if os.path.isfile('checkpoint.txt'):
-    checkpoint = np.loadtxt('checkpoint.txt')
-else:
-    np.savetxt('checkpoint.txt', [0, 0, 0])
-    checkpoint = np.loadtxt('checkpoint.txt')
-valid_epochs = int(checkpoint[0])
-total_BER = float(checkpoint[1])
-total_impulse = int(checkpoint[2])
-for x in range(total_epochs - valid_epochs):
-    checkpoint = []
-    result = []
-    channelResponse = channel_response_set_test[np.random.randint(
-        0, len(channel_response_set_test))]
-    bits = np.random.binomial(n=1, p=0.5, size=(payloadBits_per_OFDM, ))
-    OFDM_RX_CHANNEL = 0
-    OFDM_RX_CHANNEL_INFORMATION = []
-    bits_SP = SP(bits)
-    QAM = Modulation(bits_SP)
-    OFDM_data = OFDM_symbol(QAM)
-    OFDM_time = IDFT(OFDM_data)
-    OFDM_withCP = addCP(OFDM_time)
-    OFDM_TX = OFDM_withCP
-    for correct_data_check in range(100):
-        # signal to noise-ratio in dB at the receiver
-        # SNRdb = np.random.randint(5, 26)
-        OFDM_RX, datacheck = channel(
-            OFDM_TX)
-        if len(datacheck) > 1:
-            break
-    for Known_impulse in datacheck:
-        OFDM_RX[int(Known_impulse)-1] = 0
-    OFDM_RX_noCP = removeCP(OFDM_RX)
-    for i in range(1024):
+for SNRdb in range(5, 55, 5):
+    total_epochs = 10000
+    if os.path.isfile('checkpoint.txt'):
+        checkpoint = np.loadtxt('checkpoint.txt')
+    else:
+        np.savetxt('checkpoint.txt', [0, 0, 0, 0])
+        checkpoint = np.loadtxt('checkpoint.txt')
+    valid_epochs = int(checkpoint[0])
+    total_BER = float(checkpoint[1])
+    total_impulse = int(checkpoint[2])
+    total_best_threshold = int(checkpoint[3])
+    BestTname = 'BestT'+str(SNRdb)+'.txt'
+    BestBERname = 'BestBER'+str(SNRdb)+'.txt'
+    # BT = [4.5, 4.5, 4, 4, 4, 4, 4, 4, 4, 4]
+    # BT = BT[int((SNRdb/5)-1)]
+    temp_th = 0
+    for x in range(total_epochs - valid_epochs):
+        output_SNR = []
+        output_BER = []
+        threshold = []
+        checkpoint = []
+        result = []
+        Eyksk = 0
+        Eykyk = 0
+        np.random.seed(0)
+        channelResponse = channel_response_set_test[np.random.randint(
+            0, len(channel_response_set_test))]
+        np.random.seed()
+        bits = np.random.binomial(n=1, p=0.5, size=(payloadBits_per_OFDM, ))
         OFDM_RX_CHANNEL = 0
-        for ithChannel in range(16):
-            OFDM_RX_CHANNEL += channelResponse[ithChannel] * \
-                np.exp((-1j)*(2*np.pi*ithChannel*i)/1024)
-        OFDM_RX_CHANNEL_INFORMATION.append(OFDM_RX_CHANNEL)
-    Hest = np.diag(OFDM_RX_CHANNEL_INFORMATION)
-    OFDM_demod = DFT(OFDM_RX_noCP)
-    equalized_Hest = equalize(OFDM_demod, Hest)
-    QAM_est = get_payload(equalized_Hest)
-    PS_est, hardDecision = Demapping(QAM_est)
-    bits_est = PS(PS_est)
-    BER = np.sum(abs(bits - bits_est)) / len(bits)
-    total_BER += BER
-    total_impulse += len(datacheck)
-    valid_epochs += 1
-    avg_BER = (total_BER / valid_epochs)
-    avg_impulse_prob = (total_impulse/(1055*valid_epochs)) * 100
-    checkpoint.extend([valid_epochs,
-                       total_BER,
-                       total_impulse])
-    np.savetxt('checkpoint.txt', checkpoint)
-    if valid_epochs % 1 == 0:
-        print('INs :', len(datacheck))
-        print('Epochs :', valid_epochs, '\navg.BER =',
-              avg_BER, '\navg.IN_prob =', avg_impulse_prob, '%')
-    result.extend(['BER', 'IN_prob', avg_BER, avg_impulse_prob])
-    if valid_epochs == total_epochs:
-        np.savetxt('resultIN0.001SNR10.txt', np.reshape(
-            result, (2, 2), order='F'), fmt="%s")
-        os.remove('checkpoint.txt')
+        OFDM_RX_CHANNEL_INFORMATION = []
+        bits_SP = SP(bits)
+        QAM = Modulation(bits_SP)
+        OFDM_data = OFDM_symbol(QAM)
+        OFDM_time = IDFT(OFDM_data)
+        OFDM_withCP = addCP(OFDM_time)
+        OFDM_TX = OFDM_withCP
+        OFDM_RX, OFDM_convolved, datacheck, w, g = channel(
+            OFDM_TX, channelResponse, SNRdb)
+        p = [0.999, 0.001]
+        dk = [w, w+g]
+        OFDM_RX_noCP = removeCP(OFDM_RX)
+        for th in np.arange(0.5, 15.25, 0.25):
+            OFDM_RX_ORIGIN = np.copy(OFDM_RX_noCP)
+            Eyksk = ((1+((th**2)/(2*(1+dk[0]))))*p[0]*(np.exp(-((th**2)/(2*(1+dk[0]))))))+(
+                (1+((th**2)/(2*(1+dk[1]))))*p[1]*(np.exp(-((th**2)/(2*(1+dk[1]))))))
+            Eykyk = (p[0]*(dk[0]-(((th**2)/2)+(1+dk[0]))*(np.exp(-((th**2)/(2*(1+dk[0]))))))) + \
+                (p[1]*(dk[1]-(((th**2)/2)+(1+dk[1]))
+                 * (np.exp(-((th**2)/(2*(1+dk[1])))))))
+            alpha = 1-Eyksk
+            eout = 2+(2*Eykyk)
+            gamma = ((eout/(2*(alpha**2)))-1)**(-1)
+            output_SNR.append(10*np.log(np.abs(gamma))/2)
+            threshold.append(th)
+        best_threshold = 0
+        OFDM_RX_copy = np.copy(OFDM_RX_noCP)
+        norm = np.abs(OFDM_RX_copy)
+        th_index = output_SNR.index(max(output_SNR))
+        best_th = [threshold[th_index]]
+        print(best_th)
+        temp_th += best_th[0]
+        print(temp_th/valid_epochs)
+        for Known_impulse in range(*norm.shape):
+            if (norm[int(Known_impulse)]) > best_th:
+                OFDM_RX_copy[int(Known_impulse)] = 0
+        OFDM_demod = DFT(OFDM_RX_copy)
+        Hest = np.fft.fft(channelResponse, K)
+        equalized_Hest = equalize(OFDM_demod, Hest)
+        QAM_est = get_payload(equalized_Hest)
+        PS_est, hardDecision = Demapping(QAM_est)
+        bits_est = PS(PS_est)
+        BER = np.mean(abs(bits - bits_est))
+        total_best_threshold += best_threshold
+        total_BER += BER
+        total_impulse += len(datacheck)
+        valid_epochs += 1
+        avg_BER = (total_BER / valid_epochs)
+        avg_impulse_prob = (total_impulse/(1055*valid_epochs)) * 100
+        avg_best_threshold = (total_best_threshold/valid_epochs)
+        checkpoint.extend([valid_epochs,
+                           total_BER,
+                           total_impulse,
+                           total_best_threshold])
+        np.savetxt(BestTname, output_SNR)
+        # np.savetxt(BestBERname, output_BER)
+        np.savetxt('threshold.txt', threshold)
+        np.savetxt('checkpoint.txt', checkpoint)
+        if valid_epochs % 1 == 0:
+            print('INs :', len(datacheck))
+            print('Epochs :', valid_epochs, '\navg.BER =',
+                  avg_BER, '\navg.IN_prob =', avg_impulse_prob, '%', '\navg.best_threshold =', avg_best_threshold)
+        result.extend(['BER', 'IN_prob', 'best_threshold', avg_BER,
+                      avg_impulse_prob, avg_best_threshold])
+        if valid_epochs == total_epochs:
+            np.savetxt(BestBERname, np.reshape(
+                result, (3, 2), order='F'), fmt="%s")
+            os.remove('checkpoint.txt')
