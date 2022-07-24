@@ -395,7 +395,7 @@ for test_idx in range(test_idx_low, test_idx_high):
                     numbers_float[int(len(numbers_float) / 2):len(numbers_float)])
             channel_response_set_test.append(h_response)
 
-for SNR in range(1):
+for SNR in range(10):
     if os.path.isfile('SNR.txt'):
         SNRdb = np.loadtxt('SNR.txt')
     else:
@@ -406,7 +406,7 @@ for SNR in range(1):
     if os.path.isfile('checkpoint.txt'):
         checkpoint = np.loadtxt('checkpoint.txt')
     else:
-        np.savetxt('checkpoint.txt', [0, 0, 0, 0, 0, 0, 0])
+        np.savetxt('checkpoint.txt', [0, 0, 0, 0, 0, 0, 0, 0])
         checkpoint = np.loadtxt('checkpoint.txt')
     valid_epochs = int(checkpoint[0])
     total_accuracy = float(checkpoint[1])
@@ -415,9 +415,10 @@ for SNR in range(1):
     total_recall = float(checkpoint[4])
     total_BER = float(checkpoint[5])
     total_conventional_BER = float(checkpoint[6])
+    bertest = float(checkpoint[7])
     # tau = [18.33, 20.205, 19.675, 20.535, 20.1,
     #        20.09, 20.405, 19.86, 19.075, 18.97]
-    tau = 5
+    tau = 10
     SNRdb += 5
     # tau = tau[int((SNRdb/5)-1)]
     # th = th[int((SNRdb/5)-1)]
@@ -427,6 +428,7 @@ for SNR in range(1):
         total_epochs = 5000
     print(total_epochs)
     txtname = 'resultSNR'+str(SNRdb)+'.txt'
+    bertest = 0
     for x in range(total_epochs - valid_epochs):
         Eyksk = 0
         Eykyk = 0
@@ -485,7 +487,7 @@ for SNR in range(1):
         normGRU = np.abs(np.copy(Unknown_OFDM_RX))
         c = 0
         for impulse in error_point:
-            if (normGRU[int(impulse)-1]) > best_th:
+            if (normGRU[int(impulse)-1]) > 4.75:
                 c += 1
                 Unknown_OFDM_RX[int(impulse)-1] = 0
         print(error_point)
@@ -493,6 +495,11 @@ for SNR in range(1):
         # print(c)
         Unknown_OFDM_RX_noCP = removeCP(Unknown_OFDM_RX)
         GRUBER = OFDM_Receiver(Unknown_OFDM_RX_noCP, Hest, bits)
+
+        if GRUBER < CONVENTIONALBER:
+            bertest += 1
+        print(bertest)
+        print(best_th)
 
         total_accuracy += accuracy
         total_fbeta += fbeta
@@ -513,7 +520,8 @@ for SNR in range(1):
                            total_precision,
                            total_recall,
                            total_BER,
-                           total_conventional_BER])
+                           total_conventional_BER,
+                           bertest])
         np.savetxt('checkpoint.txt', checkpoint)
         if valid_epochs % 1 == 0:
             print('-' * 120)
@@ -542,16 +550,18 @@ for SNR in range(1):
                    'recall',
                    'BER',
                    'CONVENTIONAL_BER',
+                   'BERTEST',
                    avg_accuracy,
                    avg_fbeta,
                    avg_precision,
                    avg_recall,
                    avg_BER,
-                   avg_conventional_BER])
+                   avg_conventional_BER,
+                   bertest])
 
     if valid_epochs == total_epochs:
         np.savetxt(txtname, np.reshape(
-            result, (6, 2), order='F'), fmt="%s")
+            result, (7, 2), order='F'), fmt="%s")
         SNR_checkpoint.append(SNRdb)
         np.savetxt('SNR.txt', SNR_checkpoint)
         os.remove('checkpoint.txt')
